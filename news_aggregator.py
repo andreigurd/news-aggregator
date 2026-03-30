@@ -80,11 +80,12 @@ class NewsAggregator:
                 print(f"   {desc}...")
             print(f"   URL: {article['url']}\n")
 
-    def save_favorite(self, article):
+    def save_favorite(self, article, category='Unknown'):
         """Save article to favorites"""
         favorite = {
             'title': article['title'],
             'source': article['source']['name'],
+            'category': category,
             'url': article['url'],
             'saved_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
@@ -112,13 +113,14 @@ class NewsAggregator:
 
         headers = ["#", "Title", "Source", "Saved"]
         print(tabulate(table_data, headers=headers, tablefmt="grid"))
-        tot_fav_index = len(table_data)
-        return tot_fav_index, table_data
+        
+        return table_data
 
-    def delete_favorite(self, tot_fav_index):
+    def delete_favorite(self):
         """Delete a favorite by index number"""
 
-        self.show_favorites()
+        table_data = self.show_favorites()
+        tot_fav_index = len(table_data)
 
         while True:
                 try:
@@ -126,7 +128,7 @@ class NewsAggregator:
                     if 1 <= delete_choice and delete_choice <= tot_fav_index:
                         print(f"Article number {delete_choice} deleted.")             
                         removed_fav = self.favorites.pop(delete_choice-1) 
-                        print(f'Deleted: {removed_fav['title'][":50"]}')
+                        print(f"Deleted: {removed_fav['title'][:50]}")
                         self._save_favorites()
                         return 
                     else:
@@ -139,6 +141,30 @@ class NewsAggregator:
         if not self.favorites:
             print("No favorites saved yet!")
             return
+        
+        print("Statistics Summary")
+        print("=" * 60)
+
+        # most common source
+        sources_list =[]
+        for source_item in self.favorites:
+            if source_item['source']:
+                sources_list.append(source_item['source'])
+        most_common_source, count = Counter(sources_list).most_common(1)[0]
+        print(f'\nMost Common Source: {most_common_source}: {count} articles')
+
+        # category breakdown (quantity of each category)
+        categories_list =[]
+        for cat_item in self.favorites:
+            if cat_item['source']:
+                categories_list.append(cat_item['source'])
+        category_counts = Counter(categories_list)
+        print(f'\nCategory Breakdown')
+        print("=" * 20)
+        for cat_item, count in category_counts.items():
+            print(f'{cat_item}: {count} articles(s)')
+
+        
 
     def load_favorites(self):
         """Load favorites from file"""
@@ -167,7 +193,7 @@ class NewsAggregator:
         headers = ["#", "Title", "Source", "Saved"]
 
         with open(f"{date_now} favorite_articles.txt", "w", newline="", encoding="utf-8-sig") as file:
-            file.write(table_data, headers=headers, tablefmt="grid")
+            file.write(tabulate(table_data, headers=headers, tablefmt="grid"))
 
         file_path = os.path.abspath(f"{date_now} favorite_articles.txt")
         print(f"Text file exported to:\n{file_path}")
