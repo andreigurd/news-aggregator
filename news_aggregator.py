@@ -1,10 +1,10 @@
+import hashlib
 import requests
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from tabulate import tabulate
 from collections import Counter
-
 
 class NewsAggregator:
     def __init__(self):
@@ -197,11 +197,31 @@ class NewsAggregator:
 
         file_path = os.path.abspath(f"{date_now} favorite_articles.txt")
         print(f"Text file exported to:\n{file_path}")
-        
+
+class CachedNewsAggregator(NewsAggregator):
+    # class (xx) becomes child of xx
+    def __init__(self):
+            super().__init__()
+            self.cache = {}
+            self.cache_duration = timedelta(minutes=30)
+
+    def _cache_key(self, endpoint, params):
+        """Generate cache key from request"""
+        key_string = f"{endpoint}:{str(sorted(params.items()))}"
+        return hashlib.md5(key_string.encode()).hexdigest()
+
+    def _get_cached(self, cache_key):
+        """Get from cache if fresh"""
+        if cache_key in self.cache:
+            data, timestamp = self.cache[cache_key]
+            if datetime.now() - timestamp < self.cache_duration:
+                print("(Using cached data)")
+                return data
+        return None        
 
 def main():
     """Main program"""
-    aggregator = NewsAggregator()
+    aggregator = CachedNewsAggregator()
 
     print("News Aggregator")
     print("=" * 60)
