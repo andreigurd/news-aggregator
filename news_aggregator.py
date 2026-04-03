@@ -119,6 +119,10 @@ class NewsAggregator:
     def delete_favorite(self):
         """Delete a favorite by index number"""
 
+        if not self.favorites:
+            print("No favorites saved yet!")
+            return
+        
         table_data = self.show_favorites()
         tot_fav_index = len(table_data)
 
@@ -156,8 +160,8 @@ class NewsAggregator:
         # category breakdown (quantity of each category)
         categories_list =[]
         for cat_item in self.favorites:
-            if cat_item['source']:
-                categories_list.append(cat_item['source'])
+            if cat_item['category']:
+                categories_list.append(cat_item['category'])
         category_counts = Counter(categories_list)
         print(f'\nCategory Breakdown')
         print("=" * 20)
@@ -217,7 +221,40 @@ class CachedNewsAggregator(NewsAggregator):
             if datetime.now() - timestamp < self.cache_duration:
                 print("(Using cached data)")
                 return data
-        return None        
+        return None
+
+    def get_top_headlines(self, country='us', category=None):
+        """Get top headlines"""
+        url = f"{self.base_url}/top-headlines"
+        params = {
+            'country': country,
+            'apiKey': self.api_key
+        }
+
+        if category:
+            params['category'] = category
+
+        # make cache key
+        cache_key = self._cache_key("headlines", params)
+
+        #Check if we have recent cached data. note _get_cached also checks that cache is fresh
+        cached_data = self._get_cached(cache_key)
+        if cached_data:
+            return cached_data
+
+        # if cache_key in self.cache:
+        #     cached_data, timestamp = self._get_cached(cache_key)
+        
+        # No cache or cache expired - fetch new data
+        # call parent class to avoid repeating (DRY)
+        data = super().get_top_headlines(country=country, category=category)
+
+        # Save to cache
+        if data:
+            self.cache[cache_key] = (data, datetime.now())
+            # note this is .cache data to cache_key location
+
+        return data
 
 def main():
     """Main program"""
@@ -266,7 +303,7 @@ def main():
                 if save.lower() != 'n':
                     try:
                         idx = int(save) - 1
-                        aggregator.save_favorite(data['articles'][idx])
+                        aggregator.save_favorite(data['articles'][idx], category)
                     except (ValueError, IndexError):
                         print("Invalid selection")
 
@@ -280,6 +317,7 @@ def main():
                 if save.lower() != 'n':
                     try:
                         idx = int(save) - 1
+                        # not searching by category so save category as "unkown" in save_favorite(self, article, category='Unknown')
                         aggregator.save_favorite(data['articles'][idx])
                     except (ValueError, IndexError):
                         print("Invalid selection")
@@ -295,7 +333,7 @@ def main():
             aggregator.display_articles(data)
             
         elif choice == "6":
-            # sortBy has options: relevancy, populartiy, and publishedAt
+            # sortBy has options: relevancy, popularity, and publishedAt
             query = input("Search for: ")
             data = aggregator.search_news(query, sort_by='publishedAt')
             aggregator.display_articles(data)
