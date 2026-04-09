@@ -2,10 +2,44 @@ import hashlib
 import requests
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from tabulate import tabulate
 from collections import Counter
+from functools import wraps
 
+
+def retry(max_attempts=3, delay=1, backoff=2):
+    """
+    Decorator to retry a function on failure
+
+    Args:
+        max_attempts: Maximum number of attempts
+        delay: Initial delay between retries (seconds)
+        backoff: Multiplier for delay (exponential backoff)
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            current_delay = delay
+
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_attempts - 1:
+                        # Last attempt failed
+                        raise
+
+                    print(f"Attempt {attempt + 1} failed: {e}")
+                    print(f"Retrying in {current_delay}s...")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+
+        return wrapper
+    return decorator
+
+# Example usage
+@retry(max_attempts=3, delay=1, backoff=2)
 class NewsAggregator:
     def __init__(self):
         self.api_key = os.getenv('NEWS_API_KEY')
